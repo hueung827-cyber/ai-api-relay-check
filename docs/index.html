@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI API 渠道质量检测工具包 - 可用率/延迟/模型一致性/计费口径实测</title>
+<meta name="description" content="开源 AI API 中转站质量检测工具：一条命令测出模型身份错配、计费 token 异常、稳定性不达标、上下文被阉割。检测标准与原始数据全部公开，对所有站点一致。">
+<meta name="robots" content="index, follow">
+<style>
+  :root { --blue:#1890ff; --dark:#1a1a1a; --gray:#5a6572; --bg:#f7f9fc; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+         color:var(--dark); background:var(--bg); line-height:1.75; }
+  .wrap { max-width:820px; margin:0 auto; padding:40px 20px 60px; }
+  h1 { font-size:30px; line-height:1.35; margin:0 0 12px; }
+  h2 { font-size:20px; margin:38px 0 12px; padding-bottom:8px; border-bottom:1px solid #e4e9f0; }
+  h3 { font-size:16px; margin:22px 0 8px; }
+  .lead { font-size:17px; color:var(--gray); margin:0 0 26px; }
+  .badges { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 22px; }
+  .badge { background:#fff; border:1px solid #dbe3ec; border-radius:20px; padding:3px 12px; font-size:13px; color:var(--gray); }
+  .card { background:#fff; border:1px solid #e4e9f0; border-radius:10px; padding:18px 22px; margin:18px 0; }
+  table { width:100%; border-collapse:collapse; margin:14px 0; font-size:14px; background:#fff; }
+  th,td { border:1px solid #e4e9f0; padding:9px 11px; text-align:left; vertical-align:top; }
+  th { background:#f2f6fb; font-weight:600; }
+  code { background:#eef2f7; padding:2px 6px; border-radius:4px; font-size:13px;
+         font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  pre { background:#1e2633; color:#e6edf3; padding:16px 18px; border-radius:8px; overflow-x:auto; font-size:13px; line-height:1.6; }
+  pre code { background:none; color:inherit; padding:0; }
+  a { color:var(--blue); }
+  .cta { display:inline-block; background:var(--blue); color:#fff; text-decoration:none;
+         padding:11px 26px; border-radius:7px; font-weight:500; margin:6px 8px 6px 0; }
+  .cta.ghost { background:#fff; color:var(--blue); border:1px solid var(--blue); }
+  footer { margin-top:52px; padding-top:20px; border-top:1px solid #e4e9f0; font-size:14px; color:var(--gray); }
+  ul { padding-left:22px; }
+  li { margin:5px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>AI API 渠道质量检测工具包</h1>
+  <p class="lead">一条命令测出中转/代理站是否：<strong>模型身份错配、计费 token 异常、稳定性不达标、上下文被阉割</strong>。
+     检测项、判定标准与原始结果全部开源，<strong>标准对所有站点一致（包括我们自己）</strong>。</p>
+
+  <div class="badges">
+    <span class="badge">MIT License</span>
+    <span class="badge">Python 3.8+</span>
+    <span class="badge">OpenAI 兼容协议</span>
+    <span class="badge">最近复测 2026-09-15</span>
+  </div>
+
+  <h2>为什么需要它</h2>
+  <p>第三方 AI API 中转站（API 代理 / 聚合平台）数量很多，但<strong>质量差异极大且不透明</strong>。
+     开发者选型时通常只能靠"听说"和"价格"，踩坑后才发现问题——比如声称是某个旗舰模型，实际由便宜模型应答；
+     或者计费口径不透明，实际开销远高于预期。</p>
+  <p>本工具包把"这家稳不稳、贵不贵、是不是真模型"从主观印象变成<strong>可量化、可复现</strong>的数据。</p>
+
+  <h2>快速开始</h2>
+  <pre><code>pip install requests tiktoken
+
+python check.py --base https://your-provider.example/v1 \
+                --key sk-xxx \
+                --model claude-sonnet-4-5 \
+                --n 100 \
+                --json-out result.json</code></pre>
+
+  <h3>输出示例（自家服务实测，2026-09-15）</h3>
+  <pre><code>样本 100 ｜ 可用率 99.0%
+延迟 中位 812ms ｜ P95 1,940ms ｜ 最大 3,210ms
+计费偏差 +3.2%（本地 tiktoken 对比）
+长上下文：120K 输入正常处理
+模型一致性：3 组 probe 各采样 3 次，输出风格稳定</code></pre>
+
+  <h2>六项检测项</h2>
+  <table>
+    <tr><th>检测项</th><th>方法</th><th>判定基准</th></tr>
+    <tr><td>① 模型身份一致性</td><td>固定 probe × 多次采样，比对输出风格；与官方渠道对照</td><td>风格跳变 → 后端可能多模型轮换</td></tr>
+    <tr><td>② 可用率</td><td>连续请求统计 HTTP 200 占比</td><td>&lt;99% 不适合生产环境</td></tr>
+    <tr><td>③ 延迟分布</td><td>记录每次耗时，算中位 / P95 / 最大</td><td>P95 &gt; 中位 ×3 → 存在抖动</td></tr>
+    <tr><td>④ 计费 token 偏差</td><td>本地 tiktoken 计数 vs 服务商返回 usage</td><td>偏差 &lt;10% 正常；&gt;20% 需追问</td></tr>
+    <tr><td>⑤ 上下文真实性</td><td>塞入接近宣称窗口长度的输入</td><td>提前报超限 → 窗口被压缩</td></tr>
+    <tr><td>⑥ 缓存命中计费</td><td>同一长 prompt 连续两次请求，比对第二次计费</td><td>缓存价通常约为标准价 10%</td></tr>
+  </table>
+
+  <h2>测不出的东西（先读这段）</h2>
+  <ul>
+    <li><strong>主观体验</strong>：输出质量好坏、风格是否合适，需要人工评估</li>
+    <li><strong>售后服务</strong>：客服响应速度与问题解决率</li>
+    <li><strong>上游政策风险</strong>：号池被封、模型下架、突然限速等运营风险</li>
+    <li><strong>长期稳定性</strong>：单次采样存在时间偏差，长期稳定性需要持续监测</li>
+    <li><strong>计费完整性</strong>：能测 token 计数是否老实，测不出倍率是否透明（需人工核对产品页）</li>
+  </ul>
+  <p><strong>单次检测结论不具备长期效力。</strong>建议：小额试充 → 用真实业务跑一轮 → 再决定是否长期使用。
+     行业整体不稳定，<strong>用多少充多少，不要大额预付</strong>。</p>
+
+  <h2>选型硬标准（8 条）</h2>
+  <ul>
+    <li>是否公开真实的可用率 / 监控数据（只说"稳定"不算证据）</li>
+    <li>token 计数方式、倍率、系统提示词是否计费——必须写在明面上</li>
+    <li>缓存价格：正常约为标准价 10%，15% 甚至 30% 会让高频场景成本翻倍</li>
+    <li>模型是否标注上游来源；价格远低于市场的"旗舰模型"要警惕</li>
+    <li>退款政策是否明确、是否原路退回</li>
+    <li>高峰期限速阈值与并发上限是否公开</li>
+    <li>运营主体是个人还是公司，有无可核验的联系方式</li>
+    <li>自己跑一轮检测，看 P95 延迟与可用率</li>
+  </ul>
+
+  <h2>参与贡献</h2>
+  <p>欢迎提交实测数据（附采样时间与样本量）、补充检测项、质疑判定标准、修正误报。
+     <strong>我们不会因为你提交了对自己不利的数据而删除它。</strong></p>
+
+  <div class="card">
+    <h3 style="margin-top:0">获取工具</h3>
+    <a class="cta" href="https://github.com/hueung827-cyber/ai-api-relay-check">GitHub 仓库</a>
+    <a class="cta ghost" href="https://gitee.com/heavenly-vessel/ai-api-relay-check">Gitee 镜像</a>
+  </div>
+
+  <footer>
+    <p>MIT License © 小鱼API ｜ 本项目由 <a href="https://xyutoken.cc">小鱼API（xyutoken.cc）</a> 维护。
+       我们本身运营一个 AI API 中转服务，对渠道质量检测有直接需求。</p>
+    <p>为免利益冲突影响可信度：检测脚本、判定标准与原始结果均开源可复现；标准对所有站点一致，<strong>包含我们自己</strong>；
+       不提供付费排名、不接受付费收录；若判定标准对某类站点不公平，欢迎开 Issue 反驳，我们会公开回应。</p>
+    <p>相关：<a href="https://xyutoken.cc">小鱼API 官网</a> ｜
+       <a href="https://xyutoken.cc/docs/">接入文档</a> ｜
+       <a href="https://xyutoken.cc/products">产品与价格</a></p>
+  </footer>
+
+</div>
+</body>
+</html>
