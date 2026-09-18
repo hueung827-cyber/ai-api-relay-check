@@ -8,7 +8,7 @@ AI API 渠道质量检测脚本（可复现 / 可自行修改）
 
 用法：
     python check.py --base https://example.com/v1 --key sk-xxx --model claude-sonnet-4-5
-    python check.py --base https://xyutoken.cc/api/v1 --key 你的令牌 --model claude-sonnet-4-5 --n 100
+    python check.py --base https://xyuai.cc/v1 --key 你的令牌 --model claude-sonnet-4-5 --n 100
 
 依赖：
     pip install requests
