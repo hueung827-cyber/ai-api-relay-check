@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 小鱼API (https://xyutoken.cc)
+Copyright (c) 2026 小鱼API (https://xyuai.cc)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,5 +23,5 @@ SOFTWARE.
 ---
 
 关于本项目：
-本工具包由小鱼API（xyutoken.cc）发起维护。检测脚本、判定标准与原始结果
+本工具包由小鱼API（xyuai.cc）发起维护。检测脚本、判定标准与原始结果
 全部开源可复现，标准对所有站点一致（包含我们自己的服务）。不接受付费收录。
